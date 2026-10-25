@@ -16,3 +16,6 @@ class Snake:
     def set_direction(self, new_direction: Direction) -> None:
         if self.direction.opposite != new_direction:
             self.direction = new_direction
+
+    def __str__(self) -> str:
+        return f"Snake: l = {self.length}, d = {self.direction.name}"

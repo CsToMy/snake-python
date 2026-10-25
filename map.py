@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from collections import deque
 from typing import Optional
 from utils import Direction, TileType, Valuable, Coordinate
 from snake import Snake
@@ -9,7 +10,7 @@ class Map:
         self.height = height
         self.width = width
         self.valuables: dict[Coordinate, Valuable] = {}
-        self.snakes: dict[int, set[Coordinate]] = {}
+        self.snakes: dict[int, deque[Coordinate]] = {}
 
     def set_valuable(self, pX: int, pY: int, v: Valuable) -> bool:
         coord = Coordinate(pX, pY)
@@ -32,8 +33,8 @@ class Map:
         if self.what_at(start) != TileType.tile:
             return False
         
-        self.snakes[snake_id] = set()
-        self.snakes[snake_id].add(start)
+        self.snakes[snake_id] = deque()
+        self.snakes[snake_id].appendleft(start)
         for i in range(0, snake.length - 1):
             if snake.direction == Direction.up:
                 coord = Coordinate(start.x, start.y + i + 1)
@@ -60,7 +61,7 @@ class Map:
             self.snakes.pop(snake_id)
             return False
         
-        self.snakes[snake_id].add(coord)
+        self.snakes[snake_id].append(coord)
         return True
 
     def _is_snake(self, coord: Coordinate) -> bool:
