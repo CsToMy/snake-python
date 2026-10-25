@@ -10,7 +10,7 @@ from snake import Snake
 from utils import Coordinate, Direction, TileType, Valuable
 
 
-@dataclass
+@dataclass(frozen=True)
 class GameConfig:
     MAP_HEIGHT: int
     MAP_WIDTH: int
@@ -24,7 +24,7 @@ class Game:
     DEFAULT_SNAKE_LENGTH: int = 3
 
     def __init__(self, config: GameConfig, seed: Optional[int] = None):
-        self.number_of_snakes: int = abs(config.NUMBER_OF_SNAKES)
+        self.number_of_snakes: int = abs(config.NUMBER_OF_SNAKES) or 1
         self.map_height: int = abs(config.MAP_HEIGHT)
         self.map_width: int = abs(config.MAP_WIDTH)
         self.number_of_valuables: int = abs(config.MAX_NUMBER_OF_VALUABLES)
@@ -159,7 +159,7 @@ class Game:
             new_coord = Coordinate(new_coord.x % self.map_width, new_coord.y % self.map_height)
         
         tile = self.map.what_at(new_coord)
-        if tile is TileType.wall and self.wraparound == False:
+        if tile is TileType.wall:
             self._remove_snake(snake_id)
             return
 
