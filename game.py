@@ -44,9 +44,12 @@ class Game:
             else self.DEFAULT_SNAKE_LENGTH
         )
 
-        self.place_snake(snake_length)
-        for _ in range(0, self.number_of_valuables):
+        for snake_id in range(self.number_of_snakes):
+            self.place_snake(snake_id, snake_length)
+
+        for _ in range(self.number_of_valuables):
             self.place_valuable()
+        
         self.map.print()
 
     @property
@@ -56,34 +59,55 @@ class Game:
     def place_valuable(self) -> None:
         if self._game_over:
             return
-        
         v = Valuable(1)
-        valuable_placed: bool = False
-        try_count: int = 0
-        while not valuable_placed:
-            try_count += 1
-            vX: int = self._rnd.randrange(0, self.map_width)
-            vY: int = self._rnd.randrange(0, self.map_height)
-            valuable_placed = self.map.set_valuable(vX, vY, v)
-            if not valuable_placed and try_count >= self.max_try_count:
-                raise TimeoutError("Cannot place valuable in time. Check game config.")
+        self._place_with_retry(lambda x, y: self.map.set_valuable(x, y, v), "valuable")
 
-    def place_snake(self, snake_length: int) -> None:
+    def place_snake(self, snake_id: int, snake_length: int) -> None:
         if self._game_over:
             return
-        
-        for i in range(0, self.number_of_snakes):
-            self.snakes[i] = Snake(snake_length, Direction.down)
-            snake_placed: bool = False
-            try_count: int = 0
-            while not snake_placed:
-                try_count += 1
-                sX: int = self._rnd.randrange(0, self.map_width - 1)
-                sY: int = self._rnd.randrange(0, self.map_height - 1)
-                snake_placed = self.map.set_snake(Coordinate(sX, sY), i, self.snakes[i])
-                if not snake_placed and try_count >= self.max_try_count:
-                    raise TimeoutError("Cannot place snake in time. Check game config.")
 
+        try_count = 0
+        while True:
+            try_count += 1
+            x = self._rnd.randrange(0, self.map_width)
+            y = self._rnd.randrange(0, self.map_height)
+            pos = Coordinate(x, y)
+            valid_directions = self._valid_start_directions(pos, snake_length)
+            if valid_directions:
+                direction = self._rnd.choice(valid_directions)
+                self.snakes[snake_id] = Snake(snake_length, direction)
+                if self.map.set_snake(pos, snake_id, self.snakes[snake_id]):
+                    return
+                del self.snakes[snake_id]
+            if try_count >= self.max_try_count:
+                raise TimeoutError("Cannot place snake in time. Check game config.")
+    
+    def _place_with_retry(self, place_fn: Callable[[int, int], bool], what: str) -> None:
+        try_count = 0
+        while True:
+            try_count += 1
+            x = self._rnd.randrange(0, self.map_width)
+            y = self._rnd.randrange(0, self.map_height)
+            if place_fn(x, y):
+                return
+            if try_count >= self.max_try_count:
+                raise TimeoutError(f"Cannot place {what} in time. Check game config.")
+
+    def _valid_start_directions(self, pos: Coordinate, length: int) -> list[Direction]:
+        if self.wraparound:
+            return list(Direction)
+        
+        valid: list[Direction] = []
+        if pos.x - (length - 1) >= 0:
+            valid.append(Direction.right)
+        if pos.x + (length - 1) < self.map_width:
+            valid.append(Direction.left)
+        if pos.y - (length - 1) >= 0:
+            valid.append(Direction.down)
+        if pos.y + (length - 1) < self.map_height:
+            valid.append(Direction.up)
+        return valid
+    
     def on_game_over(self, callback: Callable[[], None]) -> None:
         self._game_over_listeners.append(callback)
 
