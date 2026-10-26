@@ -3,6 +3,8 @@
 
 from collections import deque
 from dataclasses import dataclass
+import json
+import os
 import random
 from typing import Callable, Optional
 from map import Map
@@ -198,5 +200,25 @@ class Game:
         if not self.snakes:
             self._end_game()
 
+
+def load_config(path: str) -> GameConfig:
+    if path == "":
+        raise ValueError("Configuration path cannot be empty.")
+    if os.path.isdir(path):
+        raise IsADirectoryError(f"Configuration path is a folder: {path}")
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Configuration file does not exist: {path}")
+
+    with open(path, "r", encoding="utf-8") as config_file:
+        try:
+            config = GameConfig(**json.load(config_file))
+        except json.JSONDecodeError:
+            raise ValueError("Config file contains not valid key-value pairs.")
+        except TypeError:
+            raise TypeError("Configuration value(s) missing.")
+    return config
+
 if __name__ == "__main__":
     print("Game")
+    cfg = load_config("configs/default.json")
+    print(cfg)
