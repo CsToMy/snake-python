@@ -63,7 +63,7 @@ class MapTests(unittest.TestCase):
                 self.assertTrue(
                     game_map.set_snake(Coordinate(3, 3), 12, Snake(3, direction))
                 )
-                self.assertSetEqual(game_map.snakes[12], expected)
+                self.assertSetEqual(set(game_map.snakes[12]), expected)
                 for coordinate in expected:
                     self.assertIs(game_map.what_at(coordinate), TileType.snake)
 
@@ -72,7 +72,7 @@ class MapTests(unittest.TestCase):
         start = Coordinate(2, 1)
 
         self.assertTrue(game_map.set_snake(start, 7, Snake(1, Direction.up)))
-        self.assertSetEqual(game_map.snakes[7], {start})
+        self.assertSetEqual(set(game_map.snakes[7]), {start})
 
     def test_set_snake_fails_when_start_is_occupied(self):
         game_map = Map(4, 4)
