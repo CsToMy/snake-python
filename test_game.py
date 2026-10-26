@@ -164,7 +164,7 @@ class TestGame(unittest.TestCase):
         game.map.snakes[sid] = deque(
             [Coordinate(4, 5), Coordinate(3, 5), Coordinate(2, 5)]
         )
-        game.map.set_valuable(5, 5, Valuable(2))
+        game.map.set_valuable(Coordinate(5, 5), Valuable(2))
 
         length_before = game.snakes[sid].length
         game.move_snake(sid)

@@ -29,24 +29,24 @@ class MapTests(unittest.TestCase):
         game_map = Map(3, 4)
         valuable = Valuable(5)
 
-        self.assertTrue(game_map.set_valuable(2, 1, valuable))
+        self.assertTrue(game_map.set_valuable(Coordinate(2, 1), valuable))
         self.assertIs(game_map.what_at(Coordinate(2, 1)), TileType.valuable)
-        self.assertIs(game_map.remove_valuable(2, 1), valuable)
+        self.assertIs(game_map.remove_valuable(Coordinate(2, 1)), valuable)
         self.assertIs(game_map.what_at(Coordinate(2, 1)), TileType.tile)
 
     def test_valuable_can_only_be_placed_on_empty_in_bounds_tile(self):
         game_map = Map(3, 4)
         original = Valuable(1)
-        game_map.set_valuable(1, 1, original)
+        game_map.set_valuable(Coordinate(1, 1), original)
 
-        self.assertFalse(game_map.set_valuable(1, 1, Valuable(2)))
-        self.assertFalse(game_map.set_valuable(-1, 0, Valuable(3)))
+        self.assertFalse(game_map.set_valuable(Coordinate(1, 1), Valuable(2)))
+        self.assertFalse(game_map.set_valuable(Coordinate(-1, 0), Valuable(3)))
         self.assertIs(game_map.valuables[Coordinate(1, 1)], original)
 
     def test_remove_missing_valuable_returns_none(self):
         game_map = Map(3, 4)
 
-        self.assertIsNone(game_map.remove_valuable(1, 1))
+        self.assertIsNone(game_map.remove_valuable(Coordinate(1, 1)))
 
     def test_set_snake_places_body_according_to_direction(self):
         expected_segments = {
@@ -77,7 +77,7 @@ class MapTests(unittest.TestCase):
     def test_set_snake_fails_when_start_is_occupied(self):
         game_map = Map(4, 4)
         start = Coordinate(1, 1)
-        game_map.set_valuable(start.x, start.y, Valuable(1))
+        game_map.set_valuable(start, Valuable(1))
 
         self.assertFalse(game_map.set_snake(start, 8, Snake(2, Direction.up)))
         self.assertNotIn(8, game_map.snakes)
@@ -98,7 +98,7 @@ class MapTests(unittest.TestCase):
         game_map = Map(5, 5)
         valuable_coordinate = Coordinate(2, 4)
         valuable = Valuable(2)
-        game_map.set_valuable(valuable_coordinate.x, valuable_coordinate.y, valuable)
+        game_map.set_valuable(valuable_coordinate, valuable)
 
         self.assertFalse(
             game_map.set_snake(Coordinate(2, 2), 10, Snake(4, Direction.up))
@@ -110,7 +110,7 @@ class MapTests(unittest.TestCase):
 
     def test_prints_map_contents(self):
         game_map = Map(2, 3)
-        game_map.set_valuable(1, 0, Valuable(1))
+        game_map.set_valuable(Coordinate(1, 0), Valuable(1))
         game_map.set_snake(Coordinate(2, 1), 11, Snake(1, Direction.up))
         output = io.StringIO()
 

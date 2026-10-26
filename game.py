@@ -60,7 +60,7 @@ class Game:
         if self._game_over:
             return
         v = Valuable(1)
-        self._place_with_retry(lambda x, y: self.map.set_valuable(x, y, v), "valuable")
+        self._place_with_retry(lambda x, y: self.map.set_valuable(Coordinate(x, y), v), "valuable")
 
     def place_snake(self, snake_id: int, snake_length: int) -> None:
         if self._game_over:
@@ -181,7 +181,7 @@ class Game:
                     self._remove_snake(hit_snake_id)
                     snake.consume_valuable(Valuable(2))
 
-        v = self.map.remove_valuable(new_coord.x, new_coord.y)
+        v = self.map.remove_valuable(new_coord)
         if v is not None:
             snake.consume_valuable(v)
         

@@ -12,19 +12,17 @@ class Map:
         self.valuables: dict[Coordinate, Valuable] = {}
         self.snakes: dict[int, deque[Coordinate]] = {}
 
-    def set_valuable(self, pX: int, pY: int, v: Valuable) -> bool:
-        coord = Coordinate(pX, pY)
-        tile = self.what_at(coord)
+    def set_valuable(self, coordinate: Coordinate, v: Valuable) -> bool:
+        tile = self.what_at(coordinate)
         if tile == TileType.tile:
-            self.valuables[coord] = v
+            self.valuables[coordinate] = v
             return True
         return False
 
     def _is_valuable(self, coordinate: Coordinate) -> bool:
         return coordinate in self.valuables
 
-    def remove_valuable(self, pX: int, pY: int) -> Optional[Valuable]:
-        coordinate = Coordinate(pX, pY)
+    def remove_valuable(self, coordinate: Coordinate) -> Optional[Valuable]:
         if self._is_valuable(coordinate):
             return self.valuables.pop(coordinate)
         return None
@@ -102,7 +100,7 @@ if __name__ == "__main__":
 
     v1 = Valuable(1)
     v2 = Valuable(3)
-    map.set_valuable(2, 4, v1)
-    map.set_valuable(4, 0, v2)
+    map.set_valuable(Coordinate(2, 4), v1)
+    map.set_valuable(Coordinate(4, 0), v2)
 
     map.print()
