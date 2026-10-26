@@ -210,12 +210,7 @@ def load_config(path: str) -> GameConfig:
         raise FileNotFoundError(f"Configuration file does not exist: {path}")
 
     with open(path, "r", encoding="utf-8") as config_file:
-        try:
-            config = GameConfig(**json.load(config_file))
-        except json.JSONDecodeError:
-            raise ValueError("Config file contains not valid key-value pairs.")
-        except TypeError:
-            raise TypeError("Configuration value(s) missing.")
+        config = GameConfig(**json.load(config_file))
     return config
 
 if __name__ == "__main__":
