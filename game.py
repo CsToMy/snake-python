@@ -25,7 +25,12 @@ class GameConfig:
 class Game:
     DEFAULT_SNAKE_LENGTH: int = 3
 
-    def __init__(self, config: GameConfig, seed: Optional[int] = None):
+    def __init__(
+            self,
+            config: GameConfig,
+            seed: Optional[int] = None,
+            snake_placed_listeners: Optional[list[Callable[[int], None]]] = None
+            ) -> None:
         self.number_of_snakes: int = abs(config.NUMBER_OF_SNAKES) or 1
         self.map_height: int = abs(config.MAP_HEIGHT)
         self.map_width: int = abs(config.MAP_WIDTH)
@@ -39,6 +44,9 @@ class Game:
         self._rnd = random.Random(seed)
         self._game_over: bool = False
         self._game_over_listeners: list[Callable[[], None]] = []
+        self._snake_placed_listeners: list[Callable[[int], None]] = (
+            list(snake_placed_listeners) if snake_placed_listeners else []
+        )
 
         snake_length: int = (
             config.INITIAL_SNAKE_LENGTH
@@ -48,6 +56,8 @@ class Game:
 
         for snake_id in range(self.number_of_snakes):
             self.place_snake(snake_id, snake_length)
+            for listener in self._snake_placed_listeners:
+                listener(snake_id)
 
         for _ in range(self.number_of_valuables):
             self.place_valuable()
@@ -112,6 +122,9 @@ class Game:
     
     def on_game_over(self, callback: Callable[[], None]) -> None:
         self._game_over_listeners.append(callback)
+
+    def on_snake_placed(self, callback: Callable[[int], None]) -> None:
+        self._snake_placed_listeners.append(callback)
 
     def _end_game(self)-> None:
         if self._game_over:
@@ -200,6 +213,9 @@ class Game:
         if not self.snakes:
             self._end_game()
 
+    def tick(self) -> None:
+        print("Tick")
+
 
 def load_config(path: str) -> GameConfig:
     if path == "":
@@ -215,5 +231,3 @@ def load_config(path: str) -> GameConfig:
 
 if __name__ == "__main__":
     print("Game")
-    cfg = load_config("configs/default.json")
-    print(cfg)

@@ -296,6 +296,26 @@ class TestGame(unittest.TestCase):
         with self.assertRaises(dataclasses.FrozenInstanceError):
             config.MAP_HEIGHT = 99  # type: ignore[misc]
 
+    def test_snake_placed_listener_called_for_each_initial_snake(self) -> None:
+        received_ids: list[int] = []
+        config = GameConfig(
+            MAP_HEIGHT=10,
+            MAP_WIDTH=10,
+            NUMBER_OF_SNAKES=3,
+            MAX_NUMBER_OF_VALUABLES=0,
+            WRAPAROUND=False,
+            MAX_TRY_COUNT=100,
+            INITIAL_SNAKE_LENGTH=3,
+        )
+        with contextlib.redirect_stdout(io.StringIO()):
+            game = Game(
+                config,
+                seed=1,
+                snake_placed_listeners=[received_ids.append]
+            )
+
+        self.assertEqual(received_ids, [0, 1, 2])
+        self.assertEqual(set(received_ids), set(game.snakes.keys()))
 
 if __name__ == "__main__":
     unittest.main()
