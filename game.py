@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 
-from collections import deque
 from dataclasses import dataclass
 import json
 import os
@@ -147,63 +146,7 @@ class Game:
             return
         
         self.snakes[snake_id].direction = new_direction
-        self.move_snake(snake_id)
-    
-    def move_snake(self, snake_id: int) -> None:
-        if self._game_over:
-            return
-        if snake_id not in self.snakes.keys():
-            return
-        
-        snake: Snake = self.snakes[snake_id]
-        coords: deque[Coordinate] = self.map.snakes[snake_id]
-        
-        new_coord: Coordinate
-        if snake.direction is Direction.up:
-            new_coord = Coordinate(coords[0].x, coords[0].y - 1)
-        elif snake.direction is Direction.down:
-            new_coord = Coordinate(coords[0].x, coords[0].y + 1)
-        elif snake.direction is Direction.left:
-            new_coord = Coordinate(coords[0].x - 1, coords[0].y)
-        elif snake.direction is Direction.right:
-            new_coord = Coordinate(coords[0].x + 1, coords[0].y)
-        else:
-            raise ValueError(f"Invalid direction. Cannot move the snake {snake_id}.")
 
-        if self.wraparound:
-            new_coord = Coordinate(new_coord.x % self.map_width, new_coord.y % self.map_height)
-        
-        tile = self.map.what_at(new_coord)
-        if tile is TileType.wall:
-            self._remove_snake(snake_id)
-            return
-
-        tail = coords[-1]
-        will_grow_from_backlog = len(coords) < snake.length
-
-        if tile is TileType.snake:
-            if new_coord in coords:
-                if new_coord != tail or will_grow_from_backlog:
-                    self._remove_snake(snake_id)
-                    return
-            else:
-                hit_snake_id: Optional[int] = None
-                for other_snake_id, other_coords in self.map.snakes.items():
-                    if (snake_id != other_snake_id) and (new_coord in other_coords):
-                        hit_snake_id = other_snake_id
-                        break
-                if hit_snake_id is not None:
-                    self._remove_snake(hit_snake_id)
-                    snake.consume_valuable(Valuable(2))
-
-        v = self.map.remove_valuable(new_coord)
-        if v is not None:
-            snake.consume_valuable(v)
-        
-        coords.appendleft(new_coord)
-        if len(coords) > snake.length:
-            coords.pop()
-    
     def _remove_snake(self, snake_id: int) -> None:
         if self._game_over:
             return
@@ -213,8 +156,120 @@ class Game:
         if not self.snakes:
             self._end_game()
 
-    def tick(self) -> None:
-        print("Tick")
+    def _find_snake_at(
+            self, coord: Coordinate, candidates: list[int], exclude: Optional[int] = None
+        ) -> Optional[int]:
+            for snake_id in candidates:
+                if snake_id == exclude:
+                    continue
+                if coord in self.map.snakes.get(snake_id, ()):
+                    return snake_id
+            return None
+    
+    def move_snakes(self) -> None:
+        if self._game_over:
+            return
+
+        living_ids = list(self.snakes.keys())
+        intents: dict[int, Coordinate] = {}
+        tail_vacates: dict[int, bool] = {}
+
+        # where will the snake be?
+        # will it grow? 
+        for snake_id in living_ids:
+            snake = self.snakes[snake_id]
+            coords = self.map.snakes[snake_id]
+            head = coords[0]
+
+            if snake.direction is Direction.up:
+                new_head = Coordinate(head.x, head.y - 1)
+            elif snake.direction is Direction.down:
+                new_head = Coordinate(head.x, head.y + 1)
+            elif snake.direction is Direction.left:
+                new_head = Coordinate(head.x - 1, head.y)
+            elif snake.direction is Direction.right:
+                new_head = Coordinate(head.x + 1, head.y)
+            else:
+                raise ValueError(f"Invalid direction. Cannot move the snake {snake_id}.")
+
+            if self.wraparound:
+                new_head = Coordinate(new_head.x % self.map_width, new_head.y % self.map_height)
+
+            intents[snake_id] = new_head
+            eats_valuable = new_head in self.map.valuables
+            will_grow_from_backlog = len(coords) < snake.length
+            tail_vacates[snake_id] = not (will_grow_from_backlog or eats_valuable)
+
+        # start checking for collisions
+        dead: set[int] = set()
+        eaten_by: dict[int, int] = {}  # attacker_id -> victim_id
+
+        # hit wall
+        for snake_id, new_head in intents.items():
+            if not self.wraparound and self.map.what_at(new_head) is TileType.wall:
+                dead.add(snake_id)
+
+        targets: dict[Coordinate, list[int]] = {}
+        for snake_id, new_head in intents.items():
+            targets.setdefault(new_head, []).append(snake_id)
+        for colliding_ids in targets.values():
+            if len(colliding_ids) > 1:
+                dead.update(colliding_ids)
+
+        for snake_id in living_ids:
+            if snake_id in dead:
+                continue
+            a_head_now = self.map.snakes[snake_id][0]
+            other_snake_id = self._find_snake_at(intents[snake_id], living_ids)
+            if (
+                other_snake_id is not None
+                and other_snake_id != snake_id
+                and intents.get(other_snake_id) == a_head_now
+            ):
+                dead.add(snake_id)
+                dead.add(other_snake_id)
+
+        for snake_id in living_ids:
+            if snake_id in dead:
+                continue
+            new_head = intents[snake_id]
+            own_coords = self.map.snakes[snake_id]
+
+            if new_head in own_coords:
+                if new_head != own_coords[-1] or not tail_vacates[snake_id]:
+                    dead.add(snake_id)
+                continue
+
+            other_id = self._find_snake_at(new_head, living_ids, exclude=snake_id)
+            if other_id is not None and other_id not in dead:
+                other_coords = self.map.snakes[other_id]
+                if new_head == other_coords[-1] and tail_vacates[other_id]:
+                    continue
+                eaten_by[snake_id] = other_id
+                dead.add(other_id)
+
+        for snake_id in living_ids:
+            if snake_id in dead:
+                continue
+
+            snake = self.snakes[snake_id]
+            coords = self.map.snakes[snake_id]
+            new_head = intents[snake_id]
+
+            if snake_id in eaten_by:
+                snake.consume_valuable(Valuable(2))
+
+            v = self.map.remove_valuable(new_head)
+            if v is not None:
+                snake.consume_valuable(v)
+
+            coords.appendleft(new_head)
+            if len(coords) > snake.length:
+                coords.pop()
+
+        for snake_id in list(dead):
+            self._remove_snake(snake_id)
+
 
 
 def load_config(path: str) -> GameConfig:

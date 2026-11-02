@@ -80,7 +80,7 @@ class TestGame(unittest.TestCase):
         game.change_direction(0, perpendicular)
         self.assertIs(snake.direction, perpendicular)
 
-    def test_move_snake(self) -> None:
+    def test_move_snakes(self) -> None:
         game = self._make_game(MAX_NUMBER_OF_VALUABLES=0)
         sid = 0
         game.snakes[sid] = Snake(3, Direction.right)
@@ -88,7 +88,7 @@ class TestGame(unittest.TestCase):
             [Coordinate(5, 5), Coordinate(4, 5), Coordinate(3, 5)]
         )
 
-        game.move_snake(sid)
+        game.move_snakes()
 
         coords = game.map.snakes[sid]
         self.assertEqual(coords[0], Coordinate(6, 5))
@@ -118,7 +118,7 @@ class TestGame(unittest.TestCase):
             [Coordinate(5, 5), Coordinate(6, 5), Coordinate(6, 6), Coordinate(5, 6)]
         )
 
-        game1.move_snake(sid)
+        game1.move_snakes()
 
         self.assertTrue(game1.is_game_over)
         self.assertNotIn(sid, game1.snakes)
@@ -129,7 +129,7 @@ class TestGame(unittest.TestCase):
             [Coordinate(2, 2), Coordinate(2, 3), Coordinate(3, 3), Coordinate(3, 2)]
         )
 
-        game2.move_snake(sid)
+        game2.move_snakes()
 
         self.assertFalse(game2.is_game_over)
         self.assertEqual(game2.map.snakes[sid][0], Coordinate(3, 2))
@@ -149,7 +149,7 @@ class TestGame(unittest.TestCase):
         )
 
         length_before = game.snakes[attacker_id].length
-        game.move_snake(attacker_id)
+        game.move_snakes()
 
         self.assertNotIn(victim_id, game.snakes)
         self.assertNotIn(victim_id, game.map.snakes)
@@ -167,7 +167,7 @@ class TestGame(unittest.TestCase):
         game.map.set_valuable(Coordinate(5, 5), Valuable(2))
 
         length_before = game.snakes[sid].length
-        game.move_snake(sid)
+        game.move_snakes()
 
         self.assertEqual(game.snakes[sid].length, length_before + 2)
         self.assertNotIn(Coordinate(5, 5), game.map.valuables)
@@ -196,7 +196,6 @@ class TestGame(unittest.TestCase):
         game._remove_snake(0) # pyright: ignore[reportPrivateUsage]
         self.assertEqual(len(calls), 1)
 
-
     def test_move_snake_wall_collision(self) -> None:
         game = self._make_game(
             MAP_WIDTH=10, MAP_HEIGHT=10, WRAPAROUND=False, MAX_NUMBER_OF_VALUABLES=0
@@ -207,7 +206,7 @@ class TestGame(unittest.TestCase):
             [Coordinate(9, 5), Coordinate(8, 5), Coordinate(7, 5)]
         )
 
-        game.move_snake(sid)
+        game.move_snakes()
 
         self.assertTrue(game.is_game_over)
         self.assertNotIn(sid, game.snakes)
@@ -223,23 +222,28 @@ class TestGame(unittest.TestCase):
             [Coordinate(9, 5), Coordinate(8, 5), Coordinate(7, 5)]
         )
 
-        game.move_snake(sid)
+        game.move_snakes()
 
         self.assertFalse(game.is_game_over)
         self.assertIn(sid, game.snakes)
         self.assertEqual(game.map.snakes[sid][0], Coordinate(0, 5))
 
-    def test_unknown_snake_id_is_noop(self) -> None:
+    def test_unknown_snake_id_change_direction_is_noop(self) -> None:
         game = self._make_game()
-        snakes_before = dict(game.snakes)
-        map_before = {k: list(v) for k, v in game.map.snakes.items()}
+        snake = game.snakes[0]
+        original_direction = snake.direction
 
-        game.move_snake(999)
         game.change_direction(999, Direction.up)
 
-        self.assertEqual(game.snakes.keys(), snakes_before.keys())
-        for sid, coords in map_before.items():
-            self.assertEqual(list(game.map.snakes[sid]), coords)
+        self.assertIs(snake.direction, original_direction)
+
+    def test_move_snakes_ignores_nonexistent_ids_safely(self) -> None:
+        game = self._make_game(NUMBER_OF_SNAKES=1, MAX_NUMBER_OF_VALUABLES=0)
+        game._remove_snake(0)  # type: ignore[reportPrivateUsage]
+
+        game.move_snakes()
+
+        self.assertEqual(game.snakes, {})
 
     def test_actions_are_noop_after_game_over(self) -> None:
         game = self._make_game(NUMBER_OF_SNAKES=1, MAX_NUMBER_OF_VALUABLES=0)
@@ -250,7 +254,7 @@ class TestGame(unittest.TestCase):
         snakes_before = dict(game.snakes)
         valuables_before = dict(game.map.valuables)
 
-        game.move_snake(sid)
+        game.move_snakes()
         game.change_direction(sid, Direction.up)
         game.place_valuable()
 
@@ -316,6 +320,129 @@ class TestGame(unittest.TestCase):
 
         self.assertEqual(received_ids, [0, 1, 2])
         self.assertEqual(set(received_ids), set(game.snakes.keys()))
+
+    def test_swap_collision_kills_both_snakes(self) -> None:
+        game = self._make_game(NUMBER_OF_SNAKES=2, MAX_NUMBER_OF_VALUABLES=0)
+        a_id, b_id = 0, 1
+
+        game.snakes[a_id] = Snake(3, Direction.right)
+        game.map.snakes[a_id] = deque(
+            [Coordinate(4, 5), Coordinate(3, 5), Coordinate(2, 5)]
+        )
+        game.snakes[b_id] = Snake(3, Direction.left)
+        game.map.snakes[b_id] = deque(
+            [Coordinate(5, 5), Coordinate(6, 5), Coordinate(7, 5)]
+        )
+        # A head (4,5) -> step right (5,5) = B head
+        # B head (5,5) -> step left (4,5) = A head
+
+        game.move_snakes()
+
+        self.assertNotIn(a_id, game.snakes)
+        self.assertNotIn(b_id, game.snakes)
+
+    def test_head_collision_kills_both_snakes(self) -> None:
+        game = self._make_game(NUMBER_OF_SNAKES=2, MAX_NUMBER_OF_VALUABLES=0)
+        a_id, b_id = 0, 1
+        
+        game.snakes[a_id] = Snake(2, Direction.right)
+        game.map.snakes[a_id] = deque(
+            [Coordinate(3, 5), Coordinate(2, 5)]
+        )
+        game.snakes[b_id] = Snake(2, Direction.left)
+        game.map.snakes[b_id] = deque(
+            [Coordinate(5, 5), Coordinate(6, 5)]
+        )
+
+        # they both meet at (4, 5) and should die
+
+        game.move_snakes()
+        
+        self.assertNotIn(a_id, game.snakes)
+        self.assertNotIn(b_id, game.snakes)
+
+    def test_body_collison_kills(self) -> None:
+        game = self._make_game(MAP_HEIGHT=13, MAP_WIDTH=13, NUMBER_OF_SNAKES=2, MAX_NUMBER_OF_VALUABLES=0)
+        a_id, b_id = 0, 1
+                
+        game.snakes[a_id] = Snake(3, Direction.right)
+        game.map.snakes[a_id] = deque(
+            [Coordinate(4, 4), Coordinate(3, 4), Coordinate(2, 4)]
+        )
+        game.snakes[b_id] = Snake(3, Direction.up)
+        game.map.snakes[b_id] = deque(
+            [Coordinate(3, 5), Coordinate(3, 6), Coordinate(3, 7)]
+        )
+
+        game.move_snakes()
+
+        self.assertNotIn(a_id, game.snakes)
+        self.assertIn(b_id, game.snakes)
+        self.assertEqual(game.snakes[b_id].length, 5)
+
+    def test_stepping_on_other_snakes_leaving_tail_is_safe(self) -> None:
+        game = self._make_game(MAP_HEIGHT=13, MAP_WIDTH=13, NUMBER_OF_SNAKES=2, MAX_NUMBER_OF_VALUABLES=0)
+        a_id, b_id = 0, 1
+
+        game.snakes[a_id] = Snake(3, Direction.right)
+        game.map.snakes[a_id] = deque(
+            [Coordinate(5, 4), Coordinate(4, 4), Coordinate(3, 4)]
+        )
+        game.snakes[b_id] = Snake(3, Direction.up)
+        game.map.snakes[b_id] = deque(
+            [Coordinate(3, 5), Coordinate(3, 6), Coordinate(3, 7)]
+        )
+
+        game.move_snakes()
+
+        self.assertIn(a_id, game.snakes)
+        self.assertIn(b_id, game.snakes)
+        self.assertEqual(game.snakes[a_id].length, 3)
+        self.assertEqual(game.snakes[b_id].length, 3)
+        self.assertEqual(game.map.snakes[b_id][0], Coordinate(3, 4))
+
+    def test_move_snakes_moves_each_snake_independently(self) -> None:
+        game = self._make_game(
+            MAP_HEIGHT=13, MAP_WIDTH=13, NUMBER_OF_SNAKES=2, MAX_NUMBER_OF_VALUABLES=0
+        )
+        a_id, b_id = 0, 1
+        game.snakes[a_id] = Snake(3, Direction.right)
+        game.map.snakes[a_id] = deque(
+            [Coordinate(4, 4), Coordinate(3, 4), Coordinate(2, 4)]
+        )
+        game.snakes[b_id] = Snake(3, Direction.down)
+        game.map.snakes[b_id] = deque(
+            [Coordinate(8, 8), Coordinate(8, 7), Coordinate(8, 6)]
+        )
+
+        game.move_snakes()
+
+        self.assertEqual(
+            list(game.map.snakes[a_id]),
+            [Coordinate(5, 4), Coordinate(4, 4), Coordinate(3, 4)],
+        )
+        self.assertEqual(
+            list(game.map.snakes[b_id]),
+            [Coordinate(8, 9), Coordinate(8, 8), Coordinate(8, 7)],
+        )
+
+    def test_wraparound_moves_upward_snake_to_bottom_edge(self) -> None:
+        game = self._make_game(
+            MAP_WIDTH=10, MAP_HEIGHT=10, WRAPAROUND=True, MAX_NUMBER_OF_VALUABLES=0
+        )
+        sid = 0
+        game.snakes[sid] = Snake(3, Direction.up)
+        game.map.snakes[sid] = deque(
+            [Coordinate(5, 0), Coordinate(5, 1), Coordinate(5, 2)]
+        )
+
+        game.move_snakes()
+
+        self.assertIn(sid, game.snakes)
+        self.assertEqual(game.map.snakes[sid][0], Coordinate(5, 9))
+        self.assertEqual(len(game.map.snakes[sid]), 3)
+
+
 
 if __name__ == "__main__":
     unittest.main()
